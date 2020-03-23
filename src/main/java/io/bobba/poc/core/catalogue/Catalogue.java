@@ -104,6 +104,9 @@ public class Catalogue {
 	}
 
 	public void handlePurchase(User user, int pageId, int itemId) {
+		handlePurchase(user, pageId, itemId, 1);
+	}
+	public void handlePurchase(User user, int pageId, int itemId, int amount) {
 		CataloguePage page = getPage(pageId);
 		if (page != null && page.isEnabled() && page.isVisible() && page.getMinRank() <= user.getRank()) {
 			CatalogueItem item = page.getItem(itemId);
@@ -113,7 +116,7 @@ public class Catalogue {
 				} else {
 					user.getClient().sendMessage(new CataloguePurchaseInformationComposer(item));
 					user.setCredits(user.getCredits() - item.getCost());
-					deliverItem(user, item.getBaseItem(), item.getAmount());
+					deliverItem(user, item.getBaseItem(), item.getAmount() * amount);
 				}
 			}
 		}

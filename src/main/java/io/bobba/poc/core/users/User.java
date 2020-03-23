@@ -105,7 +105,7 @@ public class User {
 		this.motto = motto;
 		this.look = look;
 		this.rank = 7;
-		this.credits = 1337;
+		this.credits = 85000;
 		this.homeRoomId = 1;
 		this.loadingRoomId = 0;
 		this.client = client;
