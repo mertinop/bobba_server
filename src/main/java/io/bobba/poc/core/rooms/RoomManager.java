@@ -38,7 +38,7 @@ public class RoomManager {
 	
 	public void initialize() throws SQLException {
 		this.loadModelsFromDb();
-		this.createDummyRoom();
+		this.loadRoomsFromDB();
 	}
 	
 	private void loadModelsFromDb() throws SQLException {	
@@ -61,11 +61,29 @@ public class RoomManager {
             throw e;
         }
 	}
-	
-	private void createDummyRoom() {
-		RoomData roomData = new RoomData(roomId++, "Welcome", "bobba", "a very cool room", 25, "", "model_h", LockType.Open);
-		Room room = new Room(roomData, getModel(roomData.getModelId()));		
-		this.rooms.put(room.getRoomData().getId(), room);
+	private void loadRoomsFromDB() throws SQLException {
+		try (Connection connection = BobbaEnvironment.getGame().getDatabase().getDataSource().getConnection(); Statement statement = connection.createStatement()) {
+            if (statement.execute("SELECT id, name, owner, description, capacity, password, model_id, lock_type FROM room")) {
+                try (ResultSet set = statement.getResultSet()) {
+                    while (set.next()) {
+                    	int id = set.getInt("id");
+                    	String name = set.getString("name");
+                    	String owner = set.getString("owner");
+                    	String description = set.getString("description");
+                    	int capacity = set.getInt("capacity");
+                    	String password = set.getString("password");
+                    	String modelId = set.getString("model_id");
+                    	String lockTypeName = set.getString("lock_type");
+                    	LockType lockType = LockType.valueOf(lockTypeName);
+                    	RoomData roomData = new RoomData(id, name, owner, description, capacity, password, modelId, lockType);
+                    	Room room = new Room(roomData, getModel(roomData.getModelId()));
+                    	this.rooms.put(id, room);
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            throw e;
+        }
 	}
 	
 	public void onCycle() {
