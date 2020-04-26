@@ -1,6 +1,7 @@
 package io.bobba.poc.core.rooms;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -17,6 +18,8 @@ import io.bobba.poc.core.rooms.gamemap.RoomModel;
 import io.bobba.poc.core.rooms.roomdata.LockType;
 import io.bobba.poc.core.rooms.roomdata.RoomData;
 import io.bobba.poc.core.users.User;
+import io.bobba.poc.misc.logging.LogLevel;
+import io.bobba.poc.misc.logging.Logging;
 
 public class RoomManager {
 	private static int roomId = 1;
@@ -142,13 +145,43 @@ public class RoomManager {
 		if (roomName.length() > 0) {
 			RoomModel model = getModel(modelId);
 			if (model != null) {
-				RoomData roomData = new RoomData(roomId++, roomName, user.getUsername(), "", 25, "", modelId, LockType.Open);
+				int roomId = -1;
+				RoomData roomData = new RoomData(roomId, roomName, user.getUsername(), "", 25, "", modelId, LockType.Open);
 				Room room = new Room(roomData, model);
-				
-				this.rooms.put(room.getRoomData().getId(), room);
-				
-				prepareRoomForUser(user, room.getRoomData().getId(), "");
+				roomId = this.insertRoomToDB(room);
+				if(roomId > 0) {
+					room.setId(roomId);
+					this.rooms.put(roomId, room);
+					prepareRoomForUser(user, roomId, "");
+				}
 			}
 		}
+	}
+	/**
+	 * @return stored id or -1 on failure
+	 */
+	private int insertRoomToDB(Room room) {
+		int roomId = -1;
+		try {
+			Connection connection = BobbaEnvironment.getGame().getDatabase().getDataSource().getConnection();
+			PreparedStatement statement = connection.prepareStatement("INSERT INTO room (name, owner, description, capacity, password, model_id, lock_type) VALUES (?, ?, ?, ?, ?, ?, ?)", Statement.RETURN_GENERATED_KEYS);
+			RoomData roomData = room.getRoomData();
+			statement.setString(1, roomData.getName());
+			statement.setString(2, roomData.getOwner());
+			statement.setString(3, roomData.getDescription());
+			statement.setInt(4, roomData.getCapacity());
+			statement.setString(5, roomData.getPassword());
+			statement.setString(6, roomData.getModelId());
+			statement.setString(7, roomData.getLockType().toString());
+			statement.execute();
+			ResultSet resultSet = statement.getGeneratedKeys();
+	        if (resultSet.next()) {
+	            roomId = resultSet.getInt(1);
+	        }
+		} catch (SQLException e) {
+			Logging.getInstance().writeLine(e, LogLevel.Verbose, this.getClass());
+		}
+		Logging.getInstance().writeLine("Created roomId:" + roomId, LogLevel.Verbose, this.getClass());
+		return roomId;
 	}
 }

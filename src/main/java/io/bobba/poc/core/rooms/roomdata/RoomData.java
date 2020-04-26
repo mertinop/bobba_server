@@ -84,4 +84,8 @@ public class RoomData {
 		this.userCount = 0;
 	}
 
+	public void setId(int newId) {
+		this.id = newId;
+	}
+
 }

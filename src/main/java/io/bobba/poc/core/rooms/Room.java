@@ -38,6 +38,9 @@ public class Room {
 		this.roomUserManager = new RoomUserManager(this);
 		this.gameMap = new GameMap(this, roomModel);
 	}
+	public void setId(int newId) {
+		this.roomData.setId(newId);
+	}
 
 	public void sendMessage(ServerMessage message) {
 		List<RoomUser> playersToSend = roomUserManager.getUsers();

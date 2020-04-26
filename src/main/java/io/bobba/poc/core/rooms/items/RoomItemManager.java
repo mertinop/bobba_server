@@ -1,19 +1,28 @@
 package io.bobba.poc.core.rooms.items;
 
 import java.awt.Point;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import io.bobba.poc.BobbaEnvironment;
 import io.bobba.poc.communication.outgoing.rooms.FurniRemoveComposer;
 import io.bobba.poc.communication.outgoing.rooms.SerializeFloorItemComposer;
 import io.bobba.poc.communication.outgoing.rooms.SerializeWallItemComposer;
 import io.bobba.poc.core.items.BaseItem;
 import io.bobba.poc.core.items.ItemType;
 import io.bobba.poc.core.rooms.Room;
+import io.bobba.poc.core.rooms.roomdata.RoomData;
 import io.bobba.poc.core.rooms.users.RoomUser;
 import io.bobba.poc.core.users.inventory.UserItem;
+import io.bobba.poc.misc.logging.LogLevel;
+import io.bobba.poc.misc.logging.Logging;
 
 public class RoomItemManager {
 	private Map<Integer, RoomItem> floorItems;
@@ -45,8 +54,10 @@ public class RoomItemManager {
 	public void addFloorItemToRoom(int id, int x, int y, double z, int rot, int state, BaseItem baseItem) {
 		if (getItem(id) == null) {
 			floorItems.put(id, new RoomItem(id, x, y, z, rot, state, room, baseItem));
-			room.getGameMap().addItemToMap(floorItems.get(id));
-			room.sendMessage(new SerializeFloorItemComposer(floorItems.get(id)));
+			RoomItem item = floorItems.get(id);
+			insertItemToDB(item);
+			room.getGameMap().addItemToMap(item);
+			room.sendMessage(new SerializeFloorItemComposer(item));
 			room.getRoomUserManager().updateUserStatusses();
 		}
 	}
@@ -101,6 +112,7 @@ public class RoomItemManager {
 				} else {
 					double nextZ = room.getGameMap().sqAbsoluteHeight(new Point(x, y));
 					this.addFloorItemToRoom(itemId, x, y, nextZ, rot, item.getState(), item.getBaseItem());
+					this.updateItemFromDB(item);
 				}
 			}
 		}
@@ -136,5 +148,55 @@ public class RoomItemManager {
 			}
 		}
 
+	}
+
+	public void insertItemToDB(RoomItem item) {
+		try {
+			Connection connection = BobbaEnvironment.getGame().getDatabase().getDataSource().getConnection();
+			PreparedStatement statement = connection.prepareStatement("INSERT INTO room_item (room_id, base_id, state, x, y, z, rotation) VALUES (?, ?, ?, ?, ?, ?, ?)", Statement.RETURN_GENERATED_KEYS);
+			int roomId = item.getRoom().getRoomData().getId();
+			int baseId = item.getBaseItem().getId();
+			int state = item.getState();
+			int x = item.getX();
+			int y = item.getY();
+			double z = item.getZ();
+			int rotation = item.getRot();
+			statement.setInt(1, roomId);
+			statement.setInt(2, baseId);
+			statement.setInt(3, state);
+			statement.setInt(4, x);
+			statement.setInt(5, y);
+			statement.setDouble(6, z);
+			statement.setInt(7, rotation);
+			statement.execute();
+			Logging.getInstance().writeLine("Inserted item", LogLevel.Verbose, this.getClass());
+		} catch (SQLException e) {
+			Logging.getInstance().writeLine(e, LogLevel.Verbose, this.getClass());
+		}
+	}
+	public void updateItemFromDB(RoomItem item) {
+		int itemId = -1;
+		try {
+			Connection connection = BobbaEnvironment.getGame().getDatabase().getDataSource().getConnection();
+			PreparedStatement statement = connection.prepareStatement("UPDATE room_item SET state = ?, x = ?, y = ?, z = ?, rotation = ? WHERE room_id = ?", Statement.RETURN_GENERATED_KEYS);
+			int state = item.getState();
+			int x = item.getX();
+			int y = item.getY();
+			double z = item.getZ();
+			int rotation = item.getRot();
+			int baseId = item.getBaseItem().getId();
+			statement.setInt(1, state);
+			statement.setInt(2, baseId);
+			statement.setInt(3, state);
+			statement.setInt(4, x);
+			statement.setInt(5, y);
+			statement.setDouble(6, z);
+			statement.setInt(7, rotation);
+			statement.execute();
+
+		} catch (SQLException e) {
+			Logging.getInstance().writeLine(e, LogLevel.Verbose, this.getClass());
+		}
+		return roomitemId;
 	}
 }
